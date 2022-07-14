@@ -1,0 +1,1600 @@
+﻿@using IframeDte.Models
+@model List<IframeP4pView>
+@{
+    Layout = "~/Views/Shared/_AdminLteLayoutClean.cshtml";
+    ViewBag.Title = "Contratos";
+
+    bool checkedMes = false;
+
+    List<IframeP4pViewMes> allMeses = (List<IframeP4pViewMes>)TempData["allMeses"];
+
+    bool showTopN = true;
+
+    List<TopNImagens> allImages = (List<TopNImagens>)TempData["allImages"];
+
+    List<IframeRequisicaoEspaider> AcceptsList = ViewBag.AcceptsList;
+
+
+
+}
+
+@helper PrintGraph(TopNGraph graf)
+{
+    string imgGraf = "/Content/Img/nofile.jpg";
+    List<TopNImagens> allImages = (List<TopNImagens>)TempData["allImages"];
+    TopNImagens imagem = null;
+    if (allImages != null && allImages.Any())
+    {
+        imagem = allImages.Where(x => x.Nome == graf.Sku).FirstOrDefault();
+    }
+
+    if (imagem != null)
+    {
+        imgGraf = imagem.Code;
+    }
+    graf.ExibicaoCompleta = false;
+
+    decimal max = Math.Max(graf.Meta, graf.Realizado);
+
+    string fa = " fa fa-check-circle fa-3x text-green ";
+    string pending = "";
+    fa = "";
+    if (graf.Percent < 100)
+    {
+        fa = "";
+        pending = "pending";
+    }
+
+    <div class="item-topn">
+        <h4 class="text-bold">@graf.Sku</h4>
+        <div class="img-topn">
+            @if (!string.IsNullOrEmpty(fa))
+            {
+                <i class="@fa"></i>
+            }
+            <img src="@Html.Raw(imgGraf)" class="@pending" width="100" height="100" />
+        </div>
+        @*<div class="graf-topn">
+                <div class="lbl-topn">@graf.Percent%</div>
+                <input type="text" class="dial" value="@graf.Realizado" data-width="100" data-displayInput="false" data-height="100" data-fgColor="@graf.Color" data-bgColor="@graf.BgColor" data-thickness="0.2" data-readOnly="true" data-min="0" data-max="@max">
+            </div>*@
+        <div>
+            @if (graf.ExibicaoCompleta)
+            {
+                <p><b>@graf.Realizado</b>/@graf.Meta pcts (@graf.Percent%)</p>
+            }
+            else
+            {
+                string resposta = "Não positivou";
+                if (graf.Percent >= 100)
+                {
+                    resposta = "Positivou";
+                }
+                <p><b>@resposta</b></p>
+            }
+        </div>
+    </div>
+
+}
+
+@helper PrintContractTop(IframeP4pView one, bool withDates = false)
+{
+    string oRetorno = "";
+
+    if (!string.IsNullOrEmpty(one.Label) && string.IsNullOrEmpty(one.ContractNumber))
+    {
+        oRetorno = "C-STORE - " + one.Label;
+    }
+    else if (!string.IsNullOrEmpty(one.Label))
+    {
+        oRetorno = one.Label;
+    }
+    else if (string.IsNullOrEmpty(one.ContractNumber))
+    {
+        oRetorno = "C-STORE - " + one.ContractNomeCliente;
+    }
+    else
+    {
+        oRetorno = one.ContractNumber + " - " + one.ContractNomeCliente;
+    }
+
+    if (withDates && one.ContractStatus == "S")
+    {
+        oRetorno += " (De <b> " + one.ContractInicioVigencia.ToShortDateString() + "</b> até <b> " + one.ContractFimVigencia.ToShortDateString() + "</b>)";
+    }
+    else if (one.ContractStatus == "E")
+    {
+        oRetorno += " (<b>Finalizado</b>)";
+    }
+    else if (one.ContractStatus == "X")
+    {
+        oRetorno += " (<b>Cancelado</b>)";
+    }
+
+    @Html.Raw(oRetorno);
+}
+
+
+@helper PrintContratosPendentes(List<IframeRequisicaoEspaider> AcceptsList)
+{
+
+    if (AcceptsList.Any())
+    {
+
+        <div class="col-sm-12 no-padding caixa-aprovacoes">
+            <div class="">
+                <div class="box-header bg-orange no-margin">
+                    <i class="fa fa-calendar-check-o"></i> Olá, você possui <strong>@AcceptsList.Count</strong> contratos aguardando seu aceite!
+                </div>
+                <table class="table">
+                    <tr>
+                        <th class="tdcheck"></th>
+                        <th>Contrato</th>
+                        <th>Contrato</th>
+                        @*<th>Razão Social</th>
+                            <th>Pontos por Pacote</th>
+                            <th>Meta</th>
+                            <th>Validade</th>*@
+                        <th></th>
+                    </tr>
+
+                    @foreach (IframeRequisicaoEspaider one in AcceptsList)
+                    {
+                        <tr class="acceptline" rel="@one.CodigoRequisicaoEspaider">
+                            <td class="tdcheck">@*<i class="fa fa-check-square"></i>*@</td>
+                            <td>@one.CodigoRequisicaoEspaider</td>
+                            <td>@one.PastaContrato</td>
+                            @*<td>@one.RazaoSocial</td>
+                                <td>@one.PontosPorPacote</td>
+                                <td>@one.Meta</td>
+                                <td>36 meses</td>*@
+                            <td class="text-center acceptbox" rel="@one.IDRequisicaoEspaider">
+                                @if (one.Aprovador == 1)
+                                {
+                                    if (string.IsNullOrEmpty(one.ClienteAssinatura) && one.StatusCIP == 10)
+                                    {
+                                        <div class="activation" rel="@one.IDRequisicaoEspaider">
+                                            <button type="button" class="btn btn-sm btn-success btn-fake disabled">Aceitar</button>
+                                            <button type="button" class="btn btn-sm btn-success btn-real" onclick="AceiteContrato('@one.IDRequisicaoEspaider', 1)">Aceitar</button>
+                                            <button type="button" class="btn btn-sm btn-danger" onclick="OpenReject('@one.IDRequisicaoEspaider', 1)">Rejeitar</button>
+                                            <a class="btn btn-sm btn-danger" href="@one.Documento" target="_blank">Visualizar PDF</a>
+                                        </div>
+                                        <div class="form-check">
+                                            <label class="form-check-label">
+                                                <input type="checkbox"
+                                                       onclick="CheckActivation('@one.IDRequisicaoEspaider')"
+                                                       class="form-check-input activation-checkbox"
+                                                       rel="@one.IDRequisicaoEspaider"
+                                                       value="">Eu declaro que li e preenchi os campos do Sistema com as informações necessárias e que concordo com o documento gerado, nos termos da Política aplicável.
+                                            </label>
+                                        </div>
+
+                                    }
+                                    else
+                                    {
+                                        if (one.FlagAceitoOuCancelado.HasValue && one.FlagAceitoOuCancelado.Value == 0)
+                                        {
+                                            <span class="msg-contrato-aceito">Rejeitado em @one.DataAssinatura por @one.ClienteAssinatura</span><br />
+                                        }
+                                        else
+                                        {
+                                            <span class="msg-contrato-aceito">Aceito em @one.DataAssinatura por @one.ClienteAssinatura</span><br />
+                                        }
+                                    }
+                                }
+                                else if (one.Aprovador == 2)
+                                {
+                                    if (string.IsNullOrEmpty(one.ClienteAssinatura2) && one.StatusCIP == 10)
+                                    {
+                                        <button type="button" class="btn btn-sm btn-success" onclick="AceiteContrato('@one.IDRequisicaoEspaider', 2)">Aceitar</button>
+                                        <a class="btn btn-sm btn-danger" href="@one.Documento" target="_blank">Visualizar PDF</a>
+                                    }
+                                    else
+                                    {
+                                        <span class="msg-contrato-aceito">Aceito em @one.DataAssinatura2 por @one.ClienteAssinatura2</span><br />
+                                    }
+
+                                }
+                            </td>
+                        </tr>
+                    }
+                </table>
+            </div>
+        </div>
+
+        <div class="col-sm-12 no-padding caixa-aprovacoes">
+            <div class="">
+                <div class="box-header bg-green no-margin hidden" id="contractUpdated">
+                    @*<i class="fa fa-check"></i> Contrato <span id="contractedUpdated"></span> aceito!*@
+                </div>
+            </div>
+        </div>
+
+
+    }
+
+
+
+}
+
+@helper PrintComplianceIssues(IframeP4pView one, IframeP4pViewMes oneMes, int pos = 0)
+{
+
+    //if (oneMes.MesNome == "201908" && one.ContractCodigoSap == "305004")
+    //{
+    //    oneMes.ComplianceSlot = "NÃO";
+    //}
+
+    //if (one.ContractType == "PforPCstore" && oneMes.MesIcone.Contains("triangle"))
+    if (one.ContractType == "PforPCstore")
+    {
+        string cssExtra = "";
+        if (pos == 1)
+        {
+            cssExtra = "col-md-6 col-md-offset-3 col-xs-12 col-xs-offset-0 ";
+        }
+
+        /*
+        if (oneMes.MesIcone.Contains("exclamation"))
+        {
+            oneMes.ComplianceDisplay = "NÃO";
+            oneMes.ComplianceSlot = "NÃO";
+            oneMes.ComplianceVisibilidade = "NÃO";
+        }
+        else
+        {
+            oneMes.ComplianceDisplay = "SIM";
+            oneMes.ComplianceSlot = "SIM";
+            oneMes.ComplianceVisibilidade = "SIM";
+        } */
+
+        string lblClass = "label-success";
+        string lblContent = "SIM";
+
+        <div class="@cssExtra details-compliance" style="margin-bottom: 20px;">
+            <h4 class="text-center">Premissas</h4>
+
+            <div class="col-md-4 col-xs-4 text-center">
+                @{
+                    if (oneMes.ComplianceVisibilidade.Length > 4 || oneMes.ComplianceVisibilidade.ToLower() == "sim")
+                    {
+                        lblClass = "alert-success";
+                        lblContent = "SIM";
+                    }
+                    else
+                    {
+                        lblClass = "alert-danger";
+                        lblContent = "NÃO";
+                    }
+                }
+                <div class="alert @lblClass "><i>Visibilidade Primária</i> <br /><b>@lblContent</b></div>
+                @*<span class="visible-xs">@oneMes.ComplianceVisibilidade</span>
+                    <a class="pull-right hidden-xs">@oneMes.ComplianceVisibilidade</a>*@
+
+            </div>
+            <div class="col-md-4 col-xs-4 text-center">
+                @{
+                    if (oneMes.ComplianceDisplay.Length > 4
+                        || oneMes.ComplianceDisplay.ToLower() == "sim")
+                    {
+                        lblClass = "alert-success";
+                        lblContent = "SIM";
+                    }
+                    else
+                    {
+                        lblClass = "alert-danger";
+                        lblContent = "NÃO";
+                    }
+                }
+                <div class="alert @lblClass"><i>Visibilidade Secundária</i> <br /><b>@lblContent</b></div>
+                @*<span class="visible-xs">@oneMes.ComplianceDisplay</span>
+                    <a class="pull-right hidden-xs">@oneMes.ComplianceDisplay</a>*@
+
+            </div>
+            <div class="col-md-4 col-xs-4 text-center">
+                @{
+                    if (oneMes.ComplianceSlot.Length > 4
+                        || oneMes.ComplianceSlot.ToLower() == "sim")
+                    {
+                        lblClass = "alert-success";
+                        lblContent = "SIM";
+                    }
+                    else
+                    {
+                        lblClass = "alert-danger";
+                        lblContent = "NÃO";
+                    }
+                }
+                <div class="alert @lblClass"><i>Respeitou <br />Slot</i> <br /> <b>@lblContent</b></div>
+                @*<span class="visible-xs">@oneMes.ComplianceSlot</span>
+                    <a class="pull-right hidden-xs">@oneMes.ComplianceSlot</a>*@
+
+            </div>
+            <div class="clearfix"></div>
+        </div>
+        <div class="clearfix"></div>
+    }
+}
+
+@Html.Hidden("QUERY2", (object)ViewBag.QueryIndexL)
+
+@Html.Hidden("DTEDATA", (object)ViewBag.DteData)
+
+@Html.Hidden("DTEURL")
+
+<section class="content poc-dte">
+    <input type="hidden" id="hdnContactID" value="@ViewBag.ContactID" />
+
+    @PrintContratosPendentes(AcceptsList)
+
+    <div class="col-sm-12  no-padding">
+        <div class="col-md-12  no-padding">
+
+            @if (Model != null && Model.Any() && Model[0].ContractId != null)
+            {
+                @Html.Hidden("defaultMonth", (string)TempData["defaultMonth"])
+
+                string cssDisplayDll = "";
+                if (Model.Count() == 1)
+                {
+                    cssDisplayDll = " hidden ";
+                }
+
+                <div class="col-md-12 no-margin no-padding @cssDisplayDll" style="margin-bottom: 20px !important">
+
+                    <select class="form-control" id="ddlContract">
+                        @foreach (var one in Model)
+                        {
+                            string selected = "";
+                            if (one.ContractId == Model.Last().ContractId)
+                            {
+                                selected = " selected='selected' ";
+                            }
+
+                            <option @selected value="@one.ContractId">@PrintContractTop(one, false)</option>
+                        }
+                    </select>
+                </div>
+
+                if (Model.Any() && Model[0].ContractId != null)
+                {
+                    foreach (var one in Model)
+                    {
+
+                        one.Meses = one.Meses.OrderBy(x => x.MesPrimeiroDia).ToList();
+
+                        var mesesInvert = one.Meses.OrderByDescending(x => x.MesPrimeiroDia).ToList();
+
+
+                        decimal metaScript = 0;
+                        var mesScript = one.Meses.Where(x => x.MesNome == TempData["defaultMonth"].ToString()).FirstOrDefault();
+                        if (mesScript != null)
+                        {
+                            metaScript = mesScript.MesVolumeMeta;
+                        }
+
+                        string statusBg = "bg-aqua";
+                        if (one.ContractStatus != "S")
+                        {
+                            statusBg = "bg-red";
+                        }
+
+
+                        <div class="col-md-12 box box-widget" data-rel="contractnumber" data-ref="@one.ContractId" data-meta="@metaScript" data-pontos="@one.PontosPorPacote">
+                            <div class="box-header @statusBg no-margin">
+
+                                <i class="fa fa-file-text"></i> @PrintContractTop(one, true)
+
+                            </div>
+                            <div class="box-body">
+
+                                @if (one.QtdMesesNaoAtingiuMeta > 0)
+                                {
+                                    <div class="callout callout-danger">
+                                        <i class="fa fa-exclamation-circle"></i> <b>Aviso!</b> Você está sem atingir a meta há <b>@one.QtdMesesNaoAtingiuMeta meses</b> consecutivos. Seu contrato poderá ser cancelado se atingir <B>@one.MesesCancelamento meses consecutivos sem bater a meta</B>.
+                                    </div>
+                                }
+
+                                <!-- CARROSSEL PARA MES -->
+
+                                <div class="visible-xs invisible-tablet">
+                                    <div id="carousel-meses-contrato" class="carousel slide carrousel-contrato" data-ride="carousel" data-interval="false">
+                                        @*<ol class="carousel-indicators">
+                                                <li data-target="#carousel-example-generic" data-slide-to="0" class=""></li>
+                                                <li data-target="#carousel-example-generic" data-slide-to="1" class=""></li>
+                                                <li data-target="#carousel-example-generic" data-slide-to="2" class="active"></li>
+                                            </ol>*@
+
+                                        @* // allMeses era Model.First().Meses *@
+                                        <div class="carousel-inner">
+                                            @foreach (var mesShow in allMeses)
+                                            {
+                                                string selected = "";
+                                                if (mesShow.MesPrimeiroDia.Year == DateTime.Now.Year && mesShow.MesPrimeiroDia.Month == DateTime.Now.Month)
+                                                {
+                                                    selected = " active ";
+                                                }
+
+                                                string bg = "";
+                                                if (mesShow.MesIconeCor.Any())
+                                                {
+                                                    bg = mesShow.MesIconeCor.Replace("text-", "bg-");
+                                                }
+
+                                                <div class="item @bg @selected" data-contract="@mesShow.ContractNumber" data-item="@mesShow.MesNome">
+                                                    <img src="http://placehold.it/900x500/39CCCC/ffffff&amp;text=I+Love+Bootstrap" alt="First slide" style="opacity: 0;">
+                                                    <div class="carousel-caption">
+                                                        <i class="@mesShow.MesIcone"></i>
+                                                        @mesShow.MesPrimeiroDia.ToString("MMM yyyy").ToUpper()
+                                                    </div>
+                                                </div>
+                                            }
+
+                                        </div>
+                                        <a class="left carousel-control" href="#carousel-meses-contrato" data-slide="prev">
+                                            <span class="fa fa-angle-left"></span>
+                                        </a>
+                                        <a class="right carousel-control" href="#carousel-meses-contrato" data-slide="next">
+                                            <span class="fa fa-angle-right"></span>
+                                        </a>
+                                    </div>
+                                </div>
+
+                                <!-- FIM CARROSSEL PARA MES -->
+
+
+                                @{
+                                    string classSize = "col-md-12";
+                                    if (Model.First().Meses.Count <= 2)
+                                    {
+                                        classSize = "col-md-4 col-md-offset-4 col-xs-12 col-xs-offset-0";
+                                    }
+                                    else if (Model.First().Meses.Count <= 4)
+                                    {
+                                        classSize = "col-md-6  col-md-offset-3 col-xs-12 col-xs-offset-0";
+                                    }
+                                    else if (Model.First().Meses.Count <= 6)
+                                    {
+                                        classSize = "col-md-8  col-md-offset-2 col-xs-12 col-xs-offset-0";
+                                    }
+                                }
+
+                                <div class="box-jcarousel" style="margin-top: 15px;">
+                                    <div class="jcarousel-wrapper @classSize no-padding" id="listaMeses" data-ref="listaMeses">
+
+
+                                        <div class="jcarousel ">
+                                            <ul>
+                                                @{
+                                                    int i = 0;
+                                                }
+
+                                                @foreach (var mesShow in allMeses)
+                                                {
+                                                    i++;
+
+                                                    string checkedString = "";
+                                                    if (checkedMes == false && mesShow.MesIcone.Contains("fa fa-cogs"))
+                                                    {
+                                                        checkedMes = true;
+                                                        checkedString = " active ";
+                                                    }
+                                                    //if (i <= 2)
+                                                    //{
+                                                    //    checkedString += " hidden-xs ";
+                                                    //}
+
+
+                                                    <li class="@checkedString" data-ref="selectCalendar" data-contract="@mesShow.ContractId" data-pos="@i" data-rel="@mesShow.MesNome">
+                                                        <div class="box box-solid box-item item-bg" data-rel="timeline" data-valor="" data-ref="">
+                                                            <div class="box-body text-center">
+                                                                <i class="fa @mesShow.MesIcone @mesShow.MesIconeCor"></i>
+                                                                @mesShow.MesPrimeiroDia.ToString("MMM yyyy").ToUpper()
+                                                            </div>
+                                                        </div>
+                                                    </li>
+                                                }
+
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    <div class="clearfix"></div>
+                                </div>
+
+                                <div>
+
+                                    @foreach (var oneMes in one.Meses)
+                                    {
+
+                                        // P4P 1.0 - Layout com apenas 1 meta.
+                                        if (IframeP4pView.CheckLayoutType(one, oneMes) == 1)
+                                        //one.ContractType == "P4P" || one.ContractType == "PforPCstore")
+                                        {
+
+                                            int gpos = 0;
+                                            string itemActive = "";
+
+                                            oneMes.MesTargetNext = oneMes.MesPercentRealizadoGrafico;
+
+                                            if (oneMes.MesIcone == "fa fa-cogs")
+                                            {
+                                                itemActive = " active ";
+                                            }
+
+                                            <div class="item @itemActive hidden" data-ref="boxCalendar" data-rel="@oneMes.MesNome">
+                                                @if (!string.IsNullOrEmpty(oneMes.MesAviso))
+                                                {
+                                                    <div>
+                                                        @oneMes.MesAviso
+                                                    </div>
+                                                }
+
+                                                <div class="col-md-12 item-box" style="border: 1px solid #ccc">
+
+                                                    <div class="item-header hidden">
+                                                        <i class="@oneMes.MesIcone @oneMes.MesIconeCor"></i>
+                                                        @oneMes.MesPrimeiroDia.ToString("MMM-yyyy").ToUpper()
+                                                    </div>
+                                                    <div class="progress-group">
+                                                        <span class="progress-text">
+                                                            @*Volume do mês*@
+                                                        </span>
+                                                        <span class="progress-number">
+                                                            @if (one.ContractType == "PforPCstore")
+                                                            {
+                                                                @Html.Raw(String.Format("<b>{0:N1}</b> pacotes", oneMes.MesVolumeReal))
+                                                            }
+                                                            else
+                                                            {
+                                                                @Html.Raw(String.Format("<b>{0:N1}</b>", oneMes.MesVolumeReal) + "/" + String.Format("{0:N1}", oneMes.MesVolumeMeta))
+                                                            }
+                                                        </span>
+                                                        <div class="progress sm">
+                                                            @foreach (int oneGraph in oneMes.RealizadoPercent)
+                                                            {
+                                                                if (oneGraph < 20)
+                                                                {
+                                                                    <div class="progress-bar @Html.Raw(oneMes.CorBarra)" style="width: @one.GetGraficPosition(oneGraph)%"></div>
+                                                                    <div style="float: left; margin-top: 6px; margin-left: 10px; font-weight: bold;">@String.Format("{0:N1}", oneMes.MesVolumeReal) pacotes</div>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <div class="progress-bar @Html.Raw(oneMes.CorBarra)" style="width: @one.GetGraficPosition(oneGraph)%"><strong>@String.Format("{0:N1}", oneMes.MesVolumeReal) pacotes</strong></div>
+                                                                }
+                                                            }
+                                                        </div>
+
+                                                        @if (oneMes.MesTargetNext > 0 && oneMes.MesTargetNext < 100 && one.ContractType.Trim() != "P4P" && one.ContractType.Trim() != "PforPCstore")
+                                                        {
+                                                            <div class="progress sm">
+                                                                <div class="progress-bar progress-bar-invisible text-black text-right" style="width: @oneMes.MesTargetNext%; text-align: right; padding-right: 10px">
+                                                                    @Html.Raw(oneMes.MesTargetNextMensagem)
+                                                                </div>
+                                                                <i class="fa fa-caret-up"></i>
+                                                                @Html.Raw(oneMes.MesTargetNextMensagem)
+                                                            </div>
+                                                        }
+
+                                                    </div>
+                                                    <div class="col-md-12 text-center detalhes-mes-avisos">
+                                                        <p><i class="@oneMes.MesIcone @oneMes.MesIconeCor"></i> @Html.Raw(oneMes.MesMensagem)</p>
+                                                        <p>@Html.Raw(oneMes.MesComentario)</p>
+                                                    </div>
+
+                                                    @PrintComplianceIssues(one, oneMes, 1)
+
+                                                </div>
+                                                <div class="text-left text-muted">
+                                                    <span><small>* Atualizado em @oneMes.MesLastUpdate.AddHours(-3)</small></span>
+                                                </div>
+                                            </div>
+                                        }
+                                        // P4P2.0 - Layout com atingimentos de meta.
+                                        else
+                                        {
+
+                                            int gpos = 0;
+                                            string itemActive = "";
+
+                                            //oneMes.MesTargetNext = oneMes.MesPercentRealizadoGrafico;
+
+                                            if (oneMes.MesIcone == "fa fa-cogs")
+                                            {
+                                                itemActive = " active ";
+                                            }
+
+                                            <div class="item @itemActive hidden" data-ref="boxCalendar" data-rel="@oneMes.MesNome">
+
+                                                @if (!string.IsNullOrEmpty(oneMes.MesAviso))
+                                                {
+                                                    <div class="alert bg-gray">
+                                                        <i class="fa fa-hourglass"></i>
+                                                        @oneMes.MesAviso
+                                                    </div>
+                                                }
+
+                                                <div class="col-md-12 item-box" style="border: 1px solid #ccc">
+
+                                                    <div class="item-header hidden">
+                                                        <i class="@oneMes.MesIcone @oneMes.MesIconeCor"></i>
+                                                        @*@oneMes.MesNome*@
+                                                        @oneMes.MesPrimeiroDia.ToString("MMM-yyyy").ToUpper()
+
+                                                    </div>
+                                                    <div class="progress-group">
+                                                        <span class="progress-text lblVolumeMes"><span class="hidden">Volume do mês</span></span>
+                                                        <span class="vlrVolumeMes">
+                                                            <b>@String.Format("{0:N1}", oneMes.MesVolumeReal)</b>/@String.Format("{0:N1}", oneMes.MesVolumeMeta)
+                                                        </span>
+                                                        @* Barra acima do gráfico *@
+                                                        @if (oneMes.ListaAtingimentos.Any())
+                                                        {
+                                                            <div class="progress sm hidden-xs" style="background: none;">
+                                                                @foreach (var target in oneMes.ListaAtingimentos)
+                                                                {
+                                                                    if (target.PercentualDe <= 1)
+                                                                    {
+                                                                        continue;
+                                                                    }
+
+                                                                    string bgcolor = "bg-aqua";
+                                                                    if (target.PercentualDe == 100)
+                                                                    {
+                                                                        bgcolor = "bg-green";
+                                                                    }
+
+                                                                    <div class="progress-bar progress-bar-invisible text-black text-right" style="width: @one.GetGraficPosition(Convert.ToInt32(target.DiferencaPercentual))%; text-align: right; padding-right: 10px">
+                                                                        <span style="margin-right: -25px;" class="label @bgcolor" title="@oneMes.CalcPacotes(oneMes.MesVolumeMeta, target.PercentualDe) pacotes" data-toggle="popover" data-placement="left" data-content="A partir desse ponto, você ganha @target.Pontos pontos por pacote">@String.Format("{0:N1}", target.PercentualDe)%</span>
+                                                                    </div>
+                                                                }
+                                                            </div>
+
+                                                        }
+
+                                                        <div style="position: relative; padding-top: 2px;">
+
+                                                            <div class="progress sm">
+                                                                <div class="progress-bar @Html.Raw(oneMes.CorBarra)" style="width: @one.GetGraficPosition(oneMes.MesPercentRealizadoGrafico)%"><strong class="hidden-xs">@String.Format("{0:N1}", oneMes.MesVolumeReal) pacotes</strong></div>
+                                                            </div>
+
+                                                            @if (oneMes.ListaAtingimentos.Any())
+                                                            {
+
+                                                                <div class="progress sm" style="background: none; position: absolute; top: 0; left: 0; width: 100%; height: 40px;">
+                                                                    @foreach (var target in oneMes.ListaAtingimentos)
+                                                                    {
+                                                                        if (target.PercentualDe <= 1)
+                                                                        {
+                                                                            continue;
+                                                                        }
+
+                                                                        string bgcolor = "";
+                                                                        if (target.PercentualDe == 100)
+                                                                        {
+                                                                            bgcolor = " metaok ";
+                                                                        }
+
+                                                                        <div class="progress-bar progress-bar-invisible2 @bgcolor" style="width: @one.GetGraficPosition(Convert.ToInt32(target.DiferencaPercentual))%;"></div>
+                                                                    }
+                                                                </div>
+
+                                                                <div class="visible-xs">
+                                                                    <strong>@String.Format("{0:N1}", oneMes.MesVolumeReal) pacotes</strong>
+                                                                </div>
+                                                                <div class="progress sm hidden-xs" style="background: none">
+                                                                    @foreach (var target in oneMes.ListaAtingimentos)
+                                                                    {
+                                                                        if (target.PercentualDe <= 1)
+                                                                        {
+                                                                            continue;
+                                                                        }
+
+                                                                        string bgcolor = "bg-aqua";
+                                                                        if (target.PercentualDe == 100)
+                                                                        {
+                                                                            bgcolor = "bg-green";
+                                                                        }
+
+                                                                        <div class="progress-bar progress-bar-invisible text-black text-right" style="width: @one.GetGraficPosition(Convert.ToInt32(target.DiferencaPercentual))%; text-align: right; padding-right: 10px">
+                                                                            <span style="margin-right: -40px;" class="label @bgcolor" title="@oneMes.CalcPacotes(oneMes.MesVolumeMeta, target.PercentualDe) pacotes" data-toggle="popover" data-content="A partir desse ponto, você ganha @target.Pontos pontos por pacote">@oneMes.CalcPacotes(oneMes.MesVolumeMeta, target.PercentualDe).ToString("0") pacotes</span>
+
+                                                                            @*@oneMes.CalcPacotes(oneMes.MesVolumeMeta, target.PercentualDe) pacotes
+                                                                                <i class="fa fa-caret-up" title="@oneMes.CalcPacotes(oneMes.MesVolumeMeta, target.PercentualDe) pacotes" data-toggle="popover" data-content="A partir desse ponto, você ganha @target.Pontos pontos por pacote"></i>*@
+                                                                        </div>
+                                                                    }
+                                                                </div>
+
+                                                            }
+                                                        </div>
+
+
+                                                        @*
+                                                            @if (oneMes.MesTargetNext > 0 && oneMes.MesTargetNext < 100 && one.ContractType.Trim() != "P4P")
+                                                            {
+                                                                <div class="progress sm">
+                                                                    <div class="progress-bar progress-bar-invisible text-black text-right" style="width: @oneMes.MesTargetNext%; text-align: right; padding-right: 10px">
+                                                                        @Html.Raw(oneMes.MesTargetNextMensagem)
+                                                                    </div>
+                                                                    <i class="fa fa-caret-up"></i>
+                                                                    @Html.Raw(oneMes.MesTargetNextMensagem)
+                                                                </div>
+                                                            }
+                                                        *@
+
+                                                    </div>
+                                                    <div class="col-md-12 text-center detalhes-mes-avisos">
+                                                        <p><i class="@oneMes.MesIcone @oneMes.MesIconeCor"></i> @Html.Raw(oneMes.MesMensagem)</p>
+                                                        <p>@Html.Raw(oneMes.MesComentario)</p>
+                                                    </div>
+
+                                                    @if (oneMes.ListaTopN.Any() && showTopN)
+                                                    {
+                                                        <div class="col-md-12 text-center" style="margin-top:20px">
+                                                            <div class="box-topn">
+                                                                @foreach (TopNGraph lineTopN in oneMes.ListaTopN)
+                                                                {
+                                                                    @PrintGraph(lineTopN)
+                                                                }
+                                                                <div class="clearfix"></div>
+                                                            </div>
+
+                                                        </div>
+
+                                                    }
+
+
+                                                    @{
+                                                        string classDivIssues = "hidden";
+                                                        string classDivAtingimento = "col-md-6 col-md-offset-3 col-xs-12 col-xs-offset-0";
+
+                                                        if (one.ContractType == "PforPCstore")
+                                                        {
+                                                            classDivIssues = "col-md-6 col-md-offset-3 col-xs-12 col-xs-offset-0";
+                                                            classDivAtingimento = "hidden";
+                                                        }
+
+                                                    }
+                                                    <div class="col-xs-12">
+
+                                                        <div class="@classDivIssues ">
+                                                            @PrintComplianceIssues(one, oneMes)
+                                                        </div>
+                                                        <div class="@classDivAtingimento">
+                                                            <div class="col-xs-12">
+                                                                <h4 class="text-center">Faixas de pontos</h4>
+                                                                <ul class="list-group list-group-unbordered faixas-de-pontos">
+                                                                    @{
+                                                                        int posicao3 = 0;
+                                                                    }
+
+                                                                    @foreach (var target in oneMes.ListaAtingimentos)
+                                                                    {
+                                                                        posicao3++;
+                                                                        if (target.PercentualDe <= 1)
+                                                                        {
+                                                                            continue;
+                                                                        }
+
+                                                                        string bgcolor = "bg-aqua";
+                                                                        if (target.PercentualDe == 100)
+                                                                        {
+                                                                            bgcolor = "bg-green";
+                                                                        }
+
+
+                                                                        <li class="list-group-item faixas-pontos">
+                                                                            <span class="label @bgcolor">@oneMes.CalcPacotes(oneMes.MesVolumeMeta, target.PercentualDe) pcts</span>
+
+                                                                            <span class="label @bgcolor"> @target.PercentualDe.ToString("0")% da meta</span>
+
+                                                                            <span class="visible-xs">@target.Pontos.ToString("N2") @Html.Raw((target.Pontos == 1) ? "ponto por pacote" : "pontos por pacote")</span>
+
+                                                                            <a class="pull-right hidden-xs">@target.Pontos.ToString("N2") @Html.Raw((target.Pontos == 1) ? "ponto por pacote" : "pontos por pacote")</a>
+                                                                        </li>
+
+                                                                    }
+
+                                                                </ul>
+                                                            </div>
+                                                        </div>
+
+                                                    </div>
+
+
+
+
+                                                </div>
+                                                <div class="text-left text-muted">
+                                                    <span><small>* Atualizado em @oneMes.MesLastUpdate.AddHours(-3)</small></span>
+                                                </div>
+                                            </div>
+
+                                        }
+
+                                    }
+
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+            }
+            else
+            {
+                <div class="alert alert-warning" id="nocontracts">
+                    <p>
+                        Nenhum contrato encontrado
+                    </p>
+                    <p>
+                        Dúvidas? Entre em contato com a nossa central de relacionamento pelo <strong style="white-space: nowrap;">0800 770 5235</strong>
+                    </p>
+                </div>
+
+            }
+
+            <div class="hidden alert alert-success" id="adesaook">
+                Sua adesão foi registrada!
+            </div>
+
+            <div class="clearfix"></div>
+
+            <div class="clearfix"></div>
+            <div class="hidden alert alert-warning" id="zeroreference">
+                <p>
+                    Obrigado por acessar o Portal P4P.
+                </p>
+                <p>
+                    Dúvidas? Entre em contato com a nossa central de relacionamento pelo <strong style="white-space: nowrap;">0800 770 5235</strong>
+                </p>
+            </div>
+
+            <div class="alert alert-info text-center" id="lnkResgate" style="background-color: #3fc0bd !important; font-size: 1.2em; border-color: #3fc0bd !important; margin-top: 10px;">
+                <strong>
+                    Já acumulou pontos?
+                    <a href="@TempData["linkResgate"].ToString()" class="" target="_blank" id="lnkAResgate">
+                        Clique aqui e resgate agora
+                    </a>
+                </strong>
+                <!-- /.info-box-content -->
+            </div>
+            <!-- /.progress-group -->
+        </div>
+    </div>
+
+    <div class="modal" id="modalReject" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                @Html.Hidden("ContratoID")
+                @Html.Hidden("AprovadorID")
+                <div class="modal-header">
+                    <h4 class="modal-title">Rejeitar Contrato</h4>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p>Deseja realmente rejeitar esse contrato?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" onclick="RejeitarContrato2()">Rejeitar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+</section>
+
+@section scripts {
+    @{
+        List<IframeP4pView> allContratos = (List<IframeP4pView>)TempData["Contratos"];
+        IframeP4pViewMes mesDestaque = (IframeP4pViewMes)TempData["mesDestaque"];
+    }
+
+    <!-- FLOT CHARTS -->
+    <script src="~/Scripts/AdminLTE/plugins/flot/jquery.flot.js"></script>
+    <!-- FLOT RESIZE PLUGIN - allows the chart to redraw when the window is resized -->
+    <script src="~/Scripts/AdminLTE/plugins/flot/jquery.flot.resize.js"></script>
+    <!-- FLOT PIE PLUGIN - also used to draw donut charts -->
+    <script src="~/Scripts/AdminLTE/plugins/flot/jquery.flot.pie.js"></script>
+    <!-- FLOT CATEGORIES PLUGIN - Used to draw bar charts -->
+    <script src="~/Scripts/AdminLTE/plugins/flot/jquery.flot.categories.js"></script>
+    <script src="~/Scripts/AdminLTE/plugins/knob/jquery.knob.js"></script>
+
+    @Styles.Render("~/Scripts/AdminLTE/plugins/datepicker/datepicker3.css")
+
+    <link href="~/Content/bootstrap-select.css" rel="stylesheet" />
+    @*<link href="~/Content/bootstrap-select.css.map" rel="stylesheet" />*@
+    <script src="~/Scripts/bootstrap-select.js"></script>
+    @*<script src="~/Scripts/bootstrap-select.js.map"></script>*@
+
+    <script>
+        $(".dial").knob({
+            'change': function (v) { console.log(v); }
+        });
+    </script>
+
+    <script>
+        $(function () {
+
+            $('[data-toggle="popover"]').popover();
+            $initMes = $("#defaultMonth").val();
+            ActiveMonth($initMes);
+            $("#ddlContract").change(StartItem);
+            StartItem();
+
+        })
+
+        function StartItem() {
+
+            var id = $("#ddlContract").val();
+            $("div[data-rel='contractnumber']").addClass("hidden");
+            $("div[data-rel='contractnumber'][data-ref='" + id + "']").removeClass("hidden");
+            $("li[data-ref='selectCalendar']").addClass("hidden");
+            $("li[data-ref='selectCalendar'][data-contract='" + id + "']").removeClass("hidden");
+
+            var newClass = "jcarousel-wrapper no-padding ";
+            if ($('[data-ref="selectCalendar"]:visible').length <= 2) {
+                newClass += "col-md-4 col-md-offset-4 col-xs-12 col-xs-offset-0";
+            }
+            else if ($('[data-ref="selectCalendar"]:visible').length <= 4) {
+                newClass += "col-md-6  col-md-offset-3 col-xs-12 col-xs-offset-0";
+            }
+            else if ($('[data-ref="selectCalendar"]:visible').length <= 6) {
+                newClass += "col-md-8  col-md-offset-2 col-xs-12 col-xs-offset-0";
+            }
+            else {
+                newClass += "col-md-12";
+            }
+            $("[id=listaMeses]").removeAttr("class");
+            $("[id=listaMeses]").addClass(newClass);
+            //console.log("novo class ", newClass);
+
+            if ($("[data-ref=selectCalendar].active").hasClass("hidden")) {
+                if ($("[data-ref=selectCalendar]:visible[data-rel='" + $("#defaultMonth").val() + "'] ").length > 0) {
+                    //console.log("entrou tem");
+                    ActiveMonth($("#defaultMonth").val());
+                }
+                else {
+                    //console.log("entrou não tem");
+                    ActiveMonth($("[data-ref=selectCalendar]:visible").last().data("rel"));
+                }
+            }
+
+            ReportDte();
+
+        }
+
+
+
+
+        //function OpenMonth(mesref, contrato) {
+
+        //}
+
+        //function OpenMonth(conteudo) {
+        //    console.log("OpenMonth", conteudo);
+        //}
+
+        //$('[data-ref="selectCalendar"]').click(function () {
+        //    $('[data-ref="selectCalendar"]').removeClass("active");
+        //    $(this).addClass("active");
+        //    OpenMonth();
+        //});
+
+        //function OpenMonth2() {
+
+        //    $val = $("#slCalendar").val();
+        //    console.log("slCalendar", $val);
+
+        //    //$("[data-ref='boxCalendar']").addClass("hidden");
+        //    //var $find = $("[data-ref='boxCalendar'][data-rel='" + $('[data-ref="selectCalendar"].active').data("rel") + "']");
+        //    //$($find).removeClass("hidden");
+
+        //}
+
+        //function OpenMonth() {
+        //    $("[data-ref='boxCalendar']").addClass("hidden");
+        //    var $find = $("[data-ref='boxCalendar'][data-rel='" + $('[data-ref="selectCalendar"].active').data("rel") + "']");
+        //    $($find).removeClass("hidden");
+        //}
+        //OpenMonth();
+        //$("#slCalendar").selectpicker("refresh");
+
+        //function CalendarNext() {
+        //    var $newVal = $('#slCalendar option:selected').next().val();
+        //    if (typeof $newVal === 'undefined') {
+        //    } else {
+        //        //            if ($newVal != '') {
+        //        console.log("newVal", $newVal);
+        //        $('#slCalendar').val($newVal);
+        //        $("#slCalendar").selectpicker("refresh");
+        //    }
+
+        //}
+        //function CalendarPrev() {
+        //    var $newVal = $('#slCalendar option:selected').prev().val();
+        //    if (typeof $newVal === 'undefined') {
+        //    } else {
+        //        console.log("newVal", $newVal);
+        //        $('#slCalendar').val($newVal);
+        //        $("#slCalendar").selectpicker("refresh");
+        //    }
+        //}
+
+
+        function ReportDte() {
+
+            try {
+
+                //console.log("Meta: ", metaMensal);
+                //console.log("pontosPacote: ", pontosPacote);
+
+                //window.addEventListener('message', event => {
+                //    if (event.origin.indexOf('https://br.pmiopen.com/')) {
+
+                //        console.log("entrou no pmiopen");
+
+                //        //let metaMensal = $('#metaMensal');
+                //        //let pontosPacote = $('#pontosPacote');
+                //        var metaMensal = $("[data-rel=contractnumber][data-ref=" + $contrato + "]").data("meta");
+                //        var pontosPacote = $("[data-rel=contractnumber][data-ref=" + $contrato + "]").data("pontos");
+
+                //        var completeobject = { metaMensal: metaMensal, pontosPacote: pontosPacote };
+
+                //        console.log("Objeto enviado", completeobject);
+
+                //        event.source.postMessage(completeobject, 'https://br.pmiopen.com/');
+
+                //    } else {
+                //        console.log("pulou o pmiopen");
+                //        return;
+                //    }
+                //});
+
+
+
+                //parent.window.addEventListener("message", function (event) {
+
+                //    var metaMensal = $("[data-rel=contractnumber][data-ref=" + $contrato + "]").data("meta");
+                //    var pontosPacote = $("[data-rel=contractnumber][data-ref=" + $contrato + "]").data("pontos");
+
+                //    if (event.origin.indexOf('https://br.pmiopen.com/')) {
+                //        event.source.postMessage({ metaMensal: metaMensal, pontosPacote: pontosPacote }, 'https://br.pmiopen.com/')
+                //    }
+                //    else {
+                //        return;
+                //    }
+                //});
+                var $contrato = $("#ddlContract").val();
+                var metaMensal = $("[data-rel=contractnumber][data-ref=" + $contrato + "]").data("meta");
+                var pontosPacote = $("[data-rel=contractnumber][data-ref=" + $contrato + "]").data("pontos");
+                var completeobject = { metaMensal: metaMensal, pontosPacote: pontosPacote };
+
+                console.log("Objeto enviado", completeobject);
+
+                window.parent.postMessage(completeobject, 'https://br.pmiopen.com/');
+
+
+            }
+            catch (exception) {
+                console.log("Falha ao enviar meta mensal", exception);
+            }
+        }
+
+        function AceiteContrato(numero, aprovador) {
+
+
+            var contactid = $("#hdnContactID").val();
+            var acceptBody = {
+                AceiteContact: contactid,
+                Aprovador: aprovador,
+                Contact: contactid,
+                ContractNumber: numero,
+                Aceite: 1
+            };
+
+            console.log("Aceite do contrato", acceptBody);
+
+            $.ajax({
+                method: "POST",
+                url: "/Contratos/ContractAccept",
+                data: acceptBody,
+                cache: false,
+                beforeSend: function (xhr) {
+                    console.log("beforeSend()");
+                    $('.acceptline[rel=' + numero + ']').addClass("active");
+                }
+            })
+                .done(function (msg) {
+                    console.log("Done: " + msg);
+                })
+                .fail(function (msg) {
+                    console.log("Falhou: " + msg);
+                })
+                .then(function (msg) {
+                    console.log("Finished: " + msg);
+                    $('.acceptline[rel=' + numero + ']').removeClass("active");
+                    document.location.reload(true);
+
+                });
+
+
+            console.log("Aceite do contrato " + numero);
+        }
+
+        function OpenReject(numero, aprovador) {
+            /*
+                Html.Hidden("ContratoID")
+                Html.Hidden("AprovadorID")
+             */
+            $("#ContratoID").val(numero);
+            $("#AprovadorID").val(aprovador);
+            $('#modalReject').modal();
+
+        }
+
+
+        //
+        function RejeitarContrato2() {
+
+            var numero = $("#ContratoID").val();
+            var aprovador = $("#AprovadorID").val();
+
+            console.log("numero", numero);
+            console.log("aprovador", aprovador);
+
+            var contactid = $("#hdnContactID").val();
+            var acceptBody = {
+                AceiteContact: contactid,
+                Aprovador: aprovador,
+                Contact: contactid,
+                ContractNumber: numero,
+                Aceite: -1
+            };
+
+            console.log("Aceite do contrato", acceptBody);
+
+            $.ajax({
+                method: "POST",
+                url: "/Contratos/ContractAccept",
+                data: acceptBody,
+                cache: false,
+                beforeSend: function (xhr) {
+                    console.log("beforeSend()");
+                    $('.acceptline[rel=' + numero + ']').addClass("active");
+                }
+            })
+                .done(function (msg) {
+                    console.log("Done: " + msg);
+                })
+                .fail(function (msg) {
+                    console.log("Falhou: " + msg);
+                })
+                .then(function (msg) {
+                    console.log("Finished: " + msg);
+                    $('.acceptline[rel=' + numero + ']').removeClass("active");
+                    document.location.reload(true);
+
+                });
+
+
+            console.log("Aceite do contrato " + numero);
+        }
+        function RejeitarContrato(numero, aprovador) {
+
+
+            var contactid = $("#hdnContactID").val();
+            var acceptBody = {
+                AceiteContact: contactid,
+                Aprovador: aprovador,
+                Contact: contactid,
+                ContractNumber: numero,
+                Aceite: -1
+            };
+
+            console.log("Aceite do contrato", acceptBody);
+
+            $.ajax({
+                method: "POST",
+                url: "/Contratos/ContractAccept",
+                data: acceptBody,
+                cache: false,
+                beforeSend: function (xhr) {
+                    console.log("beforeSend()");
+                    $('.acceptline[rel=' + numero + ']').addClass("active");
+                }
+            })
+                .done(function (msg) {
+                    console.log("Done: " + msg);
+                })
+                .fail(function (msg) {
+                    console.log("Falhou: " + msg);
+                })
+                .then(function (msg) {
+                    console.log("Finished: " + msg);
+                    $('.acceptline[rel=' + numero + ']').removeClass("active");
+                    document.location.reload(true);
+
+                });
+
+
+            console.log("Aceite do contrato " + numero);
+        }
+
+        function ActiveMonth(newVal) {
+
+
+            // Mostra o ítem
+            $("[data-ref='boxCalendar']").addClass("hidden");
+            var $find = $("[data-ref='boxCalendar'][data-rel='" + newVal + "']");
+            $($find).removeClass("hidden");
+
+            // Marca o campo como destaque
+            $('[data-ref="selectCalendar"]').removeClass("active");
+            $("[data-ref='selectCalendar'][data-rel='" + newVal + "']").addClass("active");
+
+            // Mostra o campo do carousel como destaque
+            $("#carousel-meses-contrato > .carousel-inner div.item").removeClass("active");
+            $("#carousel-meses-contrato > .carousel-inner div.item[data-item=" + newVal + "]").addClass("active");
+
+            $pos = $("[data-ref='selectCalendar'].active").data("pos");
+            //console.log("Achou a posição", $pos);
+
+            $("[data-ref='selectCalendar'][data-pos]").removeClass("hidden-xs");
+
+            if ($pos == 4) {
+                $("[data-ref='selectCalendar'][data-pos=1]").addClass("hidden-xs");
+                $("[data-ref='selectCalendar'][data-pos=7]").addClass("hidden-xs");
+            }
+            else if ($pos > 4) {
+                $("[data-ref='selectCalendar'][data-pos=1]").addClass("hidden-xs");
+                $("[data-ref='selectCalendar'][data-pos=2]").addClass("hidden-xs");
+            }
+            else {
+                $("[data-ref='selectCalendar'][data-pos=7]").addClass("hidden-xs");
+                $("[data-ref='selectCalendar'][data-pos=6]").addClass("hidden-xs");
+            }
+
+        }
+
+        $("li[data-ref=selectCalendar]").click(function () {
+            $val = $(this).data("rel");
+            //console.log("Item Marcado: ", $val);
+            ActiveMonth($val);
+        })
+
+        $('#carousel-meses-contrato').on('slid.bs.carousel', function () {
+            $val = $("#carousel-meses-contrato > .carousel-inner > .active").data("item");
+            console.log("Item Marcado: ", $val);
+            ActiveMonth($val);
+        })
+
+        function CheckActivation(desafioid) {
+            console.log("CheckActivation", desafioid);
+
+            if ($("input.activation-checkbox[rel=" + desafioid + "]").is(":checked")) {
+                $("div.activation[rel=" + desafioid + "]").addClass("active");
+            }
+            else {
+                $("div.activation[rel=" + desafioid + "]").removeClass("active");
+            }
+        }
+
+
+    </script>
+
+
+    <script>
+        ReportDte();
+
+        $("#DTEURL").val(window.location.href);
+
+    </script>
+
+}
+
+<style>
+
+    .box-widget {
+        border: none;
+        padding: 0;
+    }
+
+    .poc-dte .progress {
+    }
+
+    .div-progress > .progress-group {
+        margin-top: 20px;
+    }
+
+    .progress.sm, .progress-sm {
+        height: 35px;
+    }
+
+    h3 {
+    }
+
+    hr {
+        background-color: blue;
+    }
+
+    strong.month {
+        text-transform: capitalize;
+    }
+
+    strong.pontos {
+        font-size: 1.4em;
+    }
+
+    .box-jcarousel {
+        /*margin-bottom: 50px;*/
+    }
+
+    .box.box-solid.box-item {
+        border: 1px solid #d2d6de;
+        cursor: pointer;
+    }
+
+    .jcarousel ul li.active > div.box.box-solid.box-item {
+        border-color: #aaa;
+        border-width: 2px;
+        font-size: 1.3em;
+        font-weight: bold;
+    }
+
+    .progress.active.my-reverse-class .progress-bar {
+        -webkit-animation-direction: reverse;
+        -moz-animation-direction: reverse;
+        -ms-animation-direction: reverse;
+        -o-animation-direction: reverse;
+        animation-direction: reverse;
+    }
+
+    .jcarousel-wrapper {
+        position: relative;
+    }
+
+    .jcarousel {
+        position: relative;
+        overflow: hidden;
+        width: 100%;
+    }
+
+        .jcarousel ul {
+            width: 10000em;
+            position: relative;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-wrap: wrap;
+            max-width: 100%;
+        }
+
+        .jcarousel li {
+            /* width: 200px; */
+            /* float: left; */
+            border: 1px solid #fff;
+            -moz-box-sizing: border-box;
+            -webkit-box-sizing: border-box;
+            /* box-sizing: border-box; */
+            flex-basis: 0;
+            -webkit-box-flex: 1;
+            flex-grow: 1;
+            max-width: 100%;
+        }
+
+    .progress-bar-black {
+        background-color: #333;
+    }
+
+    .progress-bar-invisible {
+        background-color: rgba(0,0,0,0);
+    }
+
+    .progress-bar-invisible2 {
+        background-color: rgba(0,0,0,0);
+        border-right: 2px solid #333;
+    }
+
+        .progress-bar-invisible2.metaok {
+            border-right: 2px solid green;
+        }
+
+    .item-box {
+        border-radius: 4px;
+    }
+
+    .item-header {
+        margin-top: 10px;
+        margin-bottom: 5px;
+    }
+
+    .box-widget .progress {
+        margin-bottom: 0;
+    }
+
+    .progress-bar {
+        font-size: 16px;
+        padding-top: 5px;
+    }
+
+    .detalhes-mes-avisos {
+        font-size: 16px;
+        /*margin-top: 10px;*/
+    }
+
+        .detalhes-mes-avisos p {
+            margin-bottom: 2px;
+        }
+
+    .faixas-de-pontos .label {
+        font-size: 0.9em;
+    }
+
+    .arrow-navigation {
+        /* padding: 0; */
+        padding-top: 5px;
+        padding-left: 5px;
+        padding-right: 0;
+        padding-bottom: 0;
+        cursor: pointer;
+    }
+
+        .arrow-navigation i:hover {
+            color: darkorange;
+        }
+
+    .details-compliance .alert {
+        padding: 10px;
+    }
+
+    .lblVolumeMes {
+        position: absolute;
+        top: 5px;
+    }
+
+    .vlrVolumeMes {
+        padding-top: 4px;
+        POSITION: absolute;
+        right: 15px;
+    }
+
+    .progress-group .progress-text {
+        display: inline-block;
+        min-height: 30px;
+    }
+
+
+    .box-topn {
+        margin: auto;
+        display: inline-block;
+    }
+
+        .box-topn .item-topn {
+            float: left;
+            width: 120px;
+            margin: 0 10px;
+        }
+
+            .box-topn .item-topn h4 {
+                font-size: 0.9em;
+                min-height: 28px;
+                vertical-align: middle;
+            }
+
+            .box-topn .item-topn p {
+                margin: 0;
+                font-size: 0.8em;
+            }
+
+    .item-topn .graf-topn {
+        position: relative;
+    }
+
+    .graf-topn .lbl-topn {
+        position: absolute;
+        width: 100%;
+        top: 40px;
+    }
+
+    .graf-topn.showIcon .lbl-topn {
+        top: 30px;
+    }
+
+    .item-topn > div.img-topn {
+        position: relative;
+    }
+
+        .item-topn > div.img-topn i {
+            position: absolute;
+            top: 35px;
+            left: 40px;
+        }
+
+            .item-topn > div.img-topn i.text-green {
+                color: rgba(0,155,0,0.9) !important;
+            }
+
+        .item-topn > div.img-topn img.pending {
+            filter: grayscale(1);
+        }
+
+    .caixa-aprovacoes {
+        margin-bottom: 10px;
+    }
+
+        .caixa-aprovacoes table tr td, .caixa-aprovacoes table tr th {
+            text-align: center;
+        }
+
+        .caixa-aprovacoes .btn-aceitar-contrato {
+            /*font-size: 1.1em;*/
+        }
+
+        .caixa-aprovacoes .msg-contrato-aceito {
+            font-style: italic;
+            /*font-size: 1.1em;*/
+        }
+
+        .caixa-aprovacoes .tdcheck {
+            max-width: 0px;
+            color: green;
+            font-size: 1.5em;
+        }
+
+    div.activation button.btn-fake {
+        display: inline-block;
+    }
+
+    div.activation button.btn-real {
+        display: none;
+    }
+
+    div.activation.active button.btn-fake {
+        display: none;
+    }
+
+    div.activation.active button.btn-real {
+        display: inline-block;
+    }
+
+    @@media (min-width: 481px) {
+        .invisible-tablet {
+            display: none !important;
+        }
+    }
+
+
+    @@media only screen and (max-width: 480px) {
+        .faixas-pontos {
+            text-align: center;
+        }
+
+        .jcarousel ul li i {
+            display: block;
+            margin-bottom: 2px;
+        }
+
+
+        #carousel-meses-contrato .carousel-inner {
+            height: 50px;
+        }
+
+            #carousel-meses-contrato .carousel-inner .carousel-caption {
+                bottom: auto;
+                top: 0;
+                padding-top: 15px;
+            }
+
+        .details-compliance {
+            padding: 0;
+        }
+
+            .details-compliance > div {
+                padding: 3px;
+            }
+    }
+</style>

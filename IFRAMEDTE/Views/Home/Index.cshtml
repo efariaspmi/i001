@@ -1,0 +1,539 @@
+﻿@using IframeDte.Models
+@model List<DMDigital_DesafiosClientes>
+@{
+    Layout = "~/Views/Shared/_AdminLteLayoutClean.cshtml";
+    ViewBag.Title = "Request1";
+
+    List<string> ddlMesReferencia = (List<string>)TempData["ddlMesReferencia"];
+    List<string> ddlAccount = (List<string>)TempData["ddlAccount"];
+
+    TempData["linkResgate"] = "https://qa-mypmi.cs80.force.com/dtebr/s/shopping";
+
+    string showSelectClass = "";
+
+    if (Model == null || Model.Count == 0)
+    {
+        showSelectClass = " hidden";
+    }
+
+    List<DMDDigital_DesafioCalendario> allDatas = (List<DMDDigital_DesafioCalendario>)TempData["allDatas"];
+
+    decimal meuTeste = Convert.ToDecimal(111.1);
+
+    int contador = 0;
+
+}
+
+@*<link href="~/Scripts/Plugins/JCarousel/jcarousel.responsive.css" rel="stylesheet" />*@
+
+
+@helper TimeLine(DMDDigital_DesafioCalendario item)
+{
+
+    <li class="">
+        <div class="box box-solid box-item @item.Bg" data-rel="timeline" data-valor="@item.ValueMes" data-ref="@item.LabelMes">
+            <div class="box-body text-center">
+                <i class="@item.Icone @item.IconeCor"></i>
+                @item.LabelMes
+            </div>
+        </div>
+    </li>
+
+
+    @*<li class="timeline-item">
+            <div class="timeline-badge @status"><i class="@icone"></i></div>
+            <div class="timeline-panel">
+                <div class="timeline-heading">
+                    <h4 class="timeline-title">@titulo</h4>
+                    <p><small class="text-muted"><i class="glyphicon glyphicon-time"></i> @mes</small></p>
+                </div>
+                @if (!string.IsNullOrEmpty(body))
+                {
+                    <div class="timeline-body">
+                        @Html.Raw(body)
+                    </div>
+                }
+            </div>
+        </li>*@
+
+}
+
+
+@helper Progress(DMDigital_DesafiosClientes desafio, string cor = "aqua")
+{
+
+    DateTime inicioDesafio = desafio.FindDtInicio(desafio.MesReferencia);
+
+    //if (desafio.StatusDesafio == "F")
+    //{
+    //    desafio.StatusDesafio = "C";
+    //}
+
+
+    @*<hr />
+        <div class="col-lg-12">@desafio.Nome / @desafio.MesReferencia</div>
+        <div class="clearfix"></div>
+        <hr />*@
+
+    <div data-rel="@desafio.MesReferencia" data-account="@desafio.Nome" data-id="@desafio.DesafioClienteId" data-ref="opt" class="div-progress hidden">
+
+        @if (desafio.Adesao
+            && desafio.DataLimiteAdesao.Value.AddDays(1) > DateTime.UtcNow
+            && desafio.DataAdesaoCliente.HasValue == false
+            && desafio.StatusDesafio == "A")
+        {
+            <div class="col-md-12 text-center" style="margin-bottom: 10px;">
+                <a class="btn btn-info btn-lg" id="btnAderirDesafio" style="background-color: #3fc0bd; border-color: #3fc0bd;" href="javascript: AderirDesafio(@desafio.DesafioClienteId)">QUERO PARTICIPAR!</a>
+            </div>
+
+        }
+
+        <p class="text-center">
+            @if (desafio.StatusDesafio == "F")
+            {
+                <strong>
+                    Desafio encerrado!
+                </strong>
+            }
+            else if (desafio.Adesao && desafio.DataAdesaoCliente.HasValue == false && desafio.DataLimiteAdesao.Value.AddDays(1) < DateTime.UtcNow)
+            {
+                <strong>
+                    O período de adesão ao desafio foi encerrado
+                </strong>
+            }
+            else
+            {
+                <strong>
+                    Acompanhe aqui as suas compras e suas metas do desafio do mês
+                </strong>
+
+            }
+        </p>
+
+        @if (true ||
+            desafio.Adesao == false
+            || (desafio.DataLimiteAdesao.Value.AddDays(1) > DateTime.UtcNow)
+            || (desafio.Adesao == true && desafio.DataAdesaoCliente.HasValue))
+        {
+            string stripped = "";
+            string activeClass = "";
+
+            decimal percent1 = desafio.ReturnPercent(desafio.VolumeDesafiadoMarca, desafio.VolumeRealizadoMarca);
+            if (desafio.VolumeRealizadoMarca >= desafio.VolumeDesafiadoMarca && desafio.DataAdesaoCliente.HasValue)
+            {
+                cor = "green";
+            }
+            else if (desafio.StatusDesafio == "F" && desafio.MetaAtingida == false)
+            {
+                cor = "red";
+            }
+            else if (percent1 > 80)
+            {
+                cor = "yellow";
+            }
+            else
+            {
+                cor = "yellow";
+            }
+
+
+            if (desafio.StatusDesafio == "A" && (desafio.DataAdesaoCliente.HasValue) && desafio.StartDate < DateTime.UtcNow)
+            {
+                stripped = "progress-bar-striped";
+                activeClass = "active my-reverse-class";
+            }
+
+
+
+            <div class="progress-group">
+                <span class="progress-text">@desafio.Produto</span>
+                <span class="progress-number">Realizado: <b>@string.Format("{0:N1}", desafio.VolumeRealizadoMarca)</b>/Meta: <b>@string.Format("{0:N1}", desafio.VolumeDesafiadoMarca)</b> (pacotes)</span>
+                <div class="progress sm @activeClass">
+                    <div class="progress-bar progress-bar-@cor @stripped" style="width: @desafio.ReturnPercent(desafio.VolumeDesafiadoMarca, desafio.VolumeRealizadoMarca)%"><span class="text-black" style="font-weight: bold;">@desafio.ReturnPercent(desafio.VolumeDesafiadoMarca, desafio.VolumeRealizadoMarca)%</span></div>
+                </div>
+            </div>
+
+            {
+
+                decimal percent2 = desafio.ReturnPercent(desafio.VolumeDesafiadoPMB, desafio.VolumeRealizadoPMB);
+                if (desafio.VolumeRealizadoPMB >= desafio.VolumeDesafiadoPMB && desafio.DataAdesaoCliente.HasValue)
+                {
+                    cor = "green";
+                }
+                else if (desafio.StatusDesafio == "F" && desafio.MetaAtingida == false)
+                {
+                    cor = "red";
+                }
+                else if (percent2 > 80)
+                {
+                    cor = "yellow";
+                }
+                else
+                {
+                    cor = "yellow";
+                }
+
+            }
+
+            <div class="progress-group">
+                <span class="progress-text">Total PMB</span>
+                <span class="progress-number">Realizado: <b>@string.Format("{0:N1}", desafio.VolumeRealizadoPMB)</b>/Meta: <b>@string.Format("{0:N1}", desafio.VolumeDesafiadoPMB)</b> (pacotes)</span>
+                <div class="progress sm @activeClass">
+                    <div class="progress-bar progress-bar-@cor @stripped" style="width: @desafio.ReturnPercent(desafio.VolumeDesafiadoPMB, desafio.VolumeRealizadoPMB)%"><span class="text-black" style="font-weight: bold;">@desafio.ReturnPercent(desafio.VolumeDesafiadoPMB, desafio.VolumeRealizadoPMB)%</span></div>
+                </div>
+            </div>
+        }
+        @*else {
+                <div>
+                    Não exibiu adesão
+                    <br />Adesão: @desafio.Adesao
+                    <br />Limite Adesão: @desafio.DataLimiteAdesao
+                    <br />Data agora: @DateTime.UtcNow
+                </div>
+            }*@
+
+
+        @if (desafio.StatusDesafio == "F")
+        {
+            if (desafio.DataAdesaoCliente.HasValue == false)
+            {
+                <div class="text-center">
+                    <i>Ops, Não foi dessa vez. Lembre-se que para participar do Desafio Digital Philip Morris você precisa garantir a sua adesão dentro do prazo. Mas não se preocupe, você pode ser desafiado nos próximos meses novamente</i>
+                    @*<i>Ops! Não foi dessa vez. Lembre-se que para participar do Desafio Digital Philip Morris você precisa garantir a sua adesão dentro do prazo. Mas não se preocupe, você pode ser desafiado nos próximos meses novamente!</i>*@
+                </div>
+            }
+            else if (desafio.MetaAtingida)
+            {
+                <div class="text-success text-center"><i class="fa fa-thumbs-up"></i> Finalizado / Metas já atingidas </div>
+                <div class="text-center">
+                    <p>
+                        <i class="fa fa-trophy text-yellow"></i> <span style="font-size: 1.2em">Parabéns! Você atingiu as metas do desafio!</span>
+                        <br />
+                        Em breve você receberá <strong class="pontos">@string.Format("{0:N0}", desafio.TotalPontos)</strong> pontos!!
+                        <br />
+                        <i>Fique ligado nas mensagens aqui do Portal Vem Ser, você pode ser desafiado nos próximos meses novamente.</i>
+                    </p>
+                </div>
+            }
+            else
+            {
+                <div class="text-danger text-center"><i class="fa fa-thumbs-down"></i> Finalizado / Metas não atingidas </div>
+                <div class="text-center">
+                    <i>
+                        Faltaram poucos pacotes para atingir as metas deste mês. <br />
+                        Mas não desanime e fique ligado nas mensagens aqui do Portal Vem Ser, você pode ser desafiado nos próximos meses novamente
+                    </i>
+                </div>
+            }
+
+        }
+        else if (desafio.StatusDesafio == "A")
+        {
+            if (desafio.Adesao && desafio.DataAdesaoCliente.HasValue == false && desafio.DataLimiteAdesao > DateTime.UtcNow.AddDays(-1))
+            {
+                <div class="text-info  text-center"><i class="fa fa-trophy"></i> Em andamento (Atualizado em @desafio.LastUpdate.ToShortDateString()) </div>
+                <div class="text-center">
+                    <p>
+                        Participe do Desafio Digital Philip Morris de <strong class="month">@desafio.PrintMonth(inicioDesafio.Month)/@inicioDesafio.Year</strong><br /> e ganhe <strong class="pontos">@string.Format("{0:N0}", desafio.TotalPontos)</strong> pontos, para trocar por prêmios!
+                        <br />
+                        <small><i>*Para pontuar, você deve atingir as duas metas</i></small>
+                    </p>
+                    @*<p>
+                            <a class="btn btn-info" href="javascript: AderirDesafio(@desafio.DesafioClienteId)">Clique aqui e garanta sua participação no desafio deste mês</a>
+                        </p>*@
+                    @*<p>
+                            <button type="button" class="btn btn-primary" onclick="AderirDesafio(@desafio.DesafioClienteId);">Aceito Participar</button>
+                        </p>*@
+                </div>
+            }
+            else if (desafio.Adesao && desafio.DataAdesaoCliente.HasValue == false && desafio.DataLimiteAdesao < DateTime.UtcNow.AddDays(-1))
+            {
+                <div class="text-center">
+                    <i>Ops, Não foi dessa vez. Lembre-se que para participar do Desafio Digital Philip Morris você precisa garantir a sua adesão dentro do prazo. Mas não se preocupe, você pode ser desafiado nos próximos meses novamente</i>
+                    @*<i>Ops! Não foi dessa vez. Lembre-se que para participar do Desafio Digital Philip Morris você precisa garantir a sua adesão antes do término do prazo. Mas não se preocupe, teremos novas oportunidades de ganhar pontos e trocar por prêmios!</i>*@
+                </div>
+            }
+            else if (inicioDesafio > DateTime.UtcNow)
+            {
+
+                <div class="text-info  text-center"><i class="fa fa-trophy"></i> Desafio ainda não iniciado</div>
+                <div class="text-center">
+                    <p>
+                        Participe do Desafio Digital Philip Morris de <strong class="month">@desafio.PrintMonth(inicioDesafio.Month)/@inicioDesafio.Year</strong><br /> e ganhe <strong class="pontos">@string.Format("{0:N0}", desafio.TotalPontos)</strong> pontos, para trocar por prêmios!
+                        <br /><small><i>*Para pontuar, você deve atingir as duas metas</i></small>
+                    </p>
+                </div>
+
+
+            }
+            else if (desafio.MetaAtingida)
+            {
+                <div class="text-success text-center"><i class="fa fa-thumbs-up"></i> Desafio em andamento / Metas já atingidas </div>
+                <div class="text-center">
+                    <i class="fa fa-trophy text-yellow"></i> Em breve você receberá @string.Format("{0:N0}", desafio.TotalPontos) pontos!!
+                </div>
+                <div class="text-center">
+                    <i>Fique ligado nas mensagens aqui do Portal Vem Ser, você pode ser desafiado nos próximos meses novamente.</i>
+                </div>
+
+            }
+            else
+            {
+                <div class="text-info  text-center"><i class="fa fa-trophy"></i> Em andamento (Atualizado em @desafio.LastUpdate.ToShortDateString()) </div>
+                <div class="text-center"> Ainda dá tempo de atingir os pontos este mês, garanta suas compras!</div>
+            }
+
+        }
+
+    </div>
+
+}
+
+
+<style>
+    .poc-dte .progress {
+    }
+
+    .div-progress > .progress-group {
+        margin-top: 20px;
+    }
+
+    .progress.sm, .progress-sm {
+        height: 25px;
+    }
+
+    h3 {
+    }
+
+    hr {
+        background-color: blue;
+    }
+
+    strong.month {
+        text-transform: capitalize;
+    }
+
+    strong.pontos {
+        font-size: 1.4em;
+    }
+
+    .box-jcarousel {
+        /*margin-bottom: 50px;*/
+    }
+
+    .box.box-solid.box-item {
+        border: 1px solid #d2d6de;
+        cursor: pointer;
+    }
+
+    .jcarousel ul li.active > div.box.box-solid.box-item {
+        border-color: #aaa;
+        border-width: 2px;
+        font-size: 1.3em;
+        font-weight: bold;
+    }
+
+    .progress.active.my-reverse-class .progress-bar {
+        -webkit-animation-direction: reverse;
+        -moz-animation-direction: reverse;
+        -ms-animation-direction: reverse;
+        -o-animation-direction: reverse;
+        animation-direction: reverse;
+    }
+
+    .jcarousel-wrapper {
+        position: relative;
+    }
+
+    .jcarousel {
+        position: relative;
+        overflow: hidden;
+        width: 100%;
+    }
+
+        .jcarousel ul {
+            width: 10000em;
+            position: relative;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-wrap: wrap;
+            max-width: 100%;
+        }
+
+        .jcarousel li {
+            /* width: 200px; */
+            /* float: left; */
+            border: 1px solid #fff;
+            -moz-box-sizing: border-box;
+            -webkit-box-sizing: border-box;
+            /* box-sizing: border-box; */
+            flex-basis: 0;
+            -webkit-box-flex: 1;
+            flex-grow: 1;
+            max-width: 100%;
+        }
+</style>
+
+<section class="content poc-dte">
+    <div class="col-sm-12">
+        <div class="col-md-12 no-margin no-padding">
+
+            <h3 class="text-center">
+                <strong>Desafio das Marcas</strong>
+            </h3>
+
+            <div class="hidden alert alert-success" id="adesaook">
+                Sua adesão foi registrada!
+            </div>
+
+            <div class="col-xs-12 no-margin no-padding @showSelectClass">
+                <div class="form-group text-center">
+                    @Html.Hidden("QUERY", (string)TempData["QUERY"])
+                    @Html.Hidden("STARTDATE", (string)TempData["STARTDATE"])
+                    @Html.Hidden("TempD", TempData["d"].ToString())
+                    @Html.Hidden("MesReferencia", "")
+                    <label>Selecione aqui a loja que deseja consultar</label>
+                    <select class="form-control" id="ddlAccount">
+                        @foreach (string one in ddlAccount)
+                        {
+                            <option>@one</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <div class="col-xs-12 no-margin no-padding @showSelectClass">
+                <div class="text-center">
+                    <label>Selecione o mês que deseja consultar</label>
+                </div>
+            </div>
+
+            <div class="clearfix"></div>
+
+            <div class="box-jcarousel">
+                <div class="jcarousel-wrapper">
+                    <div class="jcarousel">
+                        <ul>
+
+                            @foreach (var one in allDatas)
+                            {
+                                contador++;
+
+                                @TimeLine(one);
+
+                                @*if (contador == 1)
+                                    {
+                                        @TimeLine(one);
+                                    }*@
+
+                                //@TimeLine(oneDate.Substring(4, 2) + "/" + oneDate.Substring(0, 4), oneDate, "")
+                            }
+
+                        </ul>
+                    </div>
+
+                    @*<a href="#" class="jcarousel-control-prev">&lsaquo;</a>*@
+                    @*<a href="#" class="jcarousel-control-next">&rsaquo;</a>*@
+
+                    <p class="jcarousel-pagination"></p>
+                </div>
+            </div>
+
+
+            @*<div class="col-xs-12 no-margin no-padding">
+                    <div class="form-group text-center">
+                        <label>Mês</label>
+                        <select class="form-control" id="optForm">
+                            @foreach (string one in ddlMesReferencia)
+                            {
+                                <option>@one</option>
+                            }
+                        </select>
+                    </div>
+                </div>*@
+
+            @foreach (var desafio in Model)
+            {
+                @Progress(desafio);
+            }
+
+            <div class="clearfix"></div>
+            <div class="hidden alert alert-warning" id="zeroreference">
+                <p>
+                    Obrigado por acessar o Portal Vem Ser.
+                </p>
+                <p>
+                    Neste mês estamos sem Desafio. Volte em breve que teremos novas oportunidades para você ganhar pontos e trocar por milhares de prêmios! 
+                </p>
+                <p>
+                    Dúvidas? Entre em contato com a nossa central de relacionamento pelo <strong style="white-space: nowrap;">0800 770 5235</strong>
+                </p>
+            </div>
+
+            <div class="hidden alert alert-warning" id="waitingDates">
+                Selecione uma data
+            </div>
+
+            <div class="alert alert-info text-center" id="lnkResgate" style="background-color: #3fc0bd !important; font-size: 1.2em; border-color: #3fc0bd !important; margin-top: 10px;">
+                <strong>
+                    Já acumulou pontos?
+
+                    <a href="@TempData["linkResgate"].ToString()" class="" target="_blank" id="lnkAResgate">
+                        Clique aqui e resgate agora
+                    </a>
+                </strong>
+                <!-- /.info-box-content -->
+            </div>
+            <!-- /.progress-group -->
+        </div>
+    </div>
+
+    @*<div>
+            <select id="ddlResgate">
+                <option value="b">Letras Brancas</option>
+                <option value="p">Letras Pretas</option>
+            </select>
+        </div>*@
+
+</section>
+
+
+@section scripts {
+
+    <!-- FLOT CHARTS -->
+    <script src="~/Scripts/AdminLTE/plugins/flot/jquery.flot.js"></script>
+    <!-- FLOT RESIZE PLUGIN - allows the chart to redraw when the window is resized -->
+    <script src="~/Scripts/AdminLTE/plugins/flot/jquery.flot.resize.js"></script>
+    <!-- FLOT PIE PLUGIN - also used to draw donut charts -->
+    <script src="~/Scripts/AdminLTE/plugins/flot/jquery.flot.pie.js"></script>
+    <!-- FLOT CATEGORIES PLUGIN - Used to draw bar charts -->
+    <script src="~/Scripts/AdminLTE/plugins/flot/jquery.flot.categories.js"></script>
+
+    @Styles.Render("~/Scripts/AdminLTE/plugins/datepicker/datepicker3.css")
+    @*<script src="~/Scripts/AdminLTE/plugins/datepicker/bootstrap-datepicker.js"></script>
+        <script src="~/Scripts/AdminLTE/plugins/datepicker/locales/bootstrap-datepicker.pt-BR.js"></script>*@
+
+    @*<script src="~/Scripts/Plugins/JCarousel/jquery.jcarousel.min.js"></script>
+        <script src="~/Scripts/Plugins/JCarousel/jcarousel.responsive.js?x=@Html.Raw(Guid.NewGuid())"></script>*@
+
+    @Scripts.Render("~/Scripts/Pages/desafios2.js?x=" + Guid.NewGuid())
+
+    <script>
+        //$("#ddlResgate").change(function () {
+        //    if ($(this).val() == "b") {
+        //        $("#lnkResgate").removeClass("text-black");
+        //        $("#lnkAResgate").removeClass("text-black");
+
+        //    }
+        //    else {
+        //        $("#lnkResgate").addClass("text-black");
+        //        $("#lnkAResgate").addClass("text-black");
+        //    }
+        //});
+
+
+    </script>
+
+}
